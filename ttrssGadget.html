@@ -1,0 +1,246 @@
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+        <HTA:APPLICATION id="ttrssGadget" applicationName="Tiny Tiny RSS Gadget" scroll="yes" singleInstance="yes"></hta>
+        <style type="text/css">
+        body
+        {
+            margin: 2px;
+            width: 160px;
+            height: 450px;
+            font-family: verdana;
+            font-size: 9px;
+            overflow: auto;
+            /*background-color: rgb(0,0,32);*/
+        }
+        .transparent {
+            zoom: 1;
+            filter: alpha(opacity=50);
+            opacity: 0.5;
+        }
+        img, object, iframe {
+          max-width: 155px;
+          height: auto;
+          width: expression(this.width > 155 ? 155 : true);
+        }
+        h2 {
+            font-family: verdana;
+            font-weight: bold;
+            font-size: 9px;
+            margin-top: 6px;
+            margin-bottom: 4px;            
+        }
+        h3 {
+            font-family: verdana;
+            font-size: 7px;
+            margin-top: 2px;
+            margin-bottom: 2px;
+        }
+        #unreadCount {
+            display: inline-block;
+            text-align: center;
+            width: 100px;
+        }
+        #star {
+            float: left;
+            margin-top: 2px;
+        }
+        </style>
+
+        <script type="text/javascript" src="jquery-1.11.0.min.js"></script>
+        <script type="text/javascript" src="json2.js"></script>
+        <script type="text/javascript" language="javascript">
+            var sid = "", ids = new Array(), unreadCount = 0;
+
+            function ajaxPost(params, success) {
+                if (window.XMLHttpRequest)
+                {
+                    // code for IE7+, Firefox, Chrome, Opera, Safari
+                    xmlhttp=new XMLHttpRequest();
+                } else {
+                    // code for IE6, IE5
+                    xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+                }
+
+                xmlhttp.onreadystatechange=function()
+                {
+                    if (xmlhttp.readyState==4)
+                    {
+                        if (xmlhttp.status==200) {
+                            success(JSON.parse(xmlhttp.responseText));
+                        } else {
+                            $("#title").html("Error : " + xmlhttp.statusText);
+                        }
+                    }
+
+                }
+
+                xmlhttp.open("post","<YOUR TTRSS URL>/api/",true);
+                xmlhttp.send(params);
+            }
+
+            function login() {
+                ajaxPost(JSON.stringify({
+                        op: 'login',
+                        user: '<YOUR USERNAME>',
+                        password: '<YOUR PASSWORD>'
+                    }), function( data ) {
+                    if (data["content"])
+                    {
+                        sid = data["content"]["session_id"];
+                        loadHeadlines();
+                    }
+                });
+            }
+
+            function loadHeadlines() {
+                if (sid == "") {
+                    login()
+                } else if (unreadCount <= 0) {
+                    getUnreadCount(loadHeadlines);
+                } else {
+                    ajaxPost(JSON.stringify({
+                            sid : sid, 
+                            op: 'getHeadlines',
+                            feed_id : -4, 
+                            limit : 5, 
+                            order_by : 'date_reverse', 
+                            view_mode : 'unread'
+                        }), function( data ) {
+                            if (data["content"])
+                            {
+                                ids = new Array();
+
+                                for(var i=0; i < data["content"].length; i++)
+                                    ids.push(data["content"][i]['id']);
+
+                                loadItem();
+                            }
+                        });
+                }
+            }
+
+            function loadItem() {
+                if (ids.length == 0) {
+                    loadHeadlines();
+                } else if (unreadCount <= 0) {
+                    getUnreadCount(loadItem);
+                } else {
+                    id = ids[0];
+                    ajaxPost(JSON.stringify({
+                            sid : sid, 
+                            op: 'getArticle',
+                            article_id : id
+                        }), function( data ) {
+                            if (data["content"])
+                            {
+                                var updatedDate = new Date();
+                                updatedDate.setTime(data["content"][0]['updated']*1000);
+                                
+                                $("#title").html(data["content"][0]['title']);
+                                $("#content").html(data["content"][0]['content']);
+                                $("#feed_title").html(data["content"][0]['feed_title']);
+                                $("#updatedDate").html(updatedDate.toLocaleString());
+                            }
+                        });
+                }
+            }
+
+            function markRead() {
+                if (ids.length == 0)
+                    loadHeadlines();
+                else {
+                    id = ids.shift();
+                    
+                    ajaxPost(JSON.stringify({
+                            sid : sid, 
+                            op: 'updateArticle',
+                            article_ids : id,
+                            mode: 0,
+                            field: 2
+                        }),
+                        function( data ) {
+                            if (data["content"]["status"] == "OK")
+                            {
+                                unreadCount = unreadCount - 1;
+                                $("#unreadCount").html(unreadCount);
+                                loadItem();
+                            }
+                        });
+                }
+            }
+
+            function getUnreadCount(nextStep) {
+                if (sid == "")
+                    login();
+                else {
+                   
+                    ajaxPost(JSON.stringify({
+                            sid : sid, 
+                            op: 'getUnread'
+                        }),
+                        function( data ) {
+                            if (data["content"]["unread"])
+                            {
+                                unreadCount = data["content"]["unread"];
+                                $("#unreadCount").html(unreadCount);
+
+                                if (unreadCount == 0)
+                                {
+                                    $("#title").html("");
+                                    $("#content").html("");
+                                    $("#feed_title").html("");
+                                    $("#updatedDate").html("");
+                                    setTimeout(loadHeadlines, (60*5) * 1000);
+                                }
+                                else
+                                {
+                                    setTimeout(getUnreadCount, (60*5) * 1000);
+
+                                    if (nextStep)
+                                        nextStep();
+                                }
+                            }
+                        });
+                }
+            }
+
+            function setStar() {
+                if (ids.length == 0)
+                    loadHeadlines();
+                else {
+                    id = ids[0];
+                    
+                    ajaxPost(JSON.stringify({
+                            sid : sid, 
+                            op: 'updateArticle',
+                            article_ids : id,
+                            mode: 1,
+                            field: 0
+                        }),
+                        function( data ) {
+                            markRead();
+                        });
+                }
+            }
+
+
+        	function init()
+        	{
+                loadHeadlines();
+            }
+
+        </script>
+    </head>
+
+	<body onload="init()" onclick="markRead()">
+        <div>
+            <img id="star" src="star.png" width="8px" height="8px" onclick="setStar()"/>
+            <span id="unreadCount"></span>
+        </div>
+        <h2 id="title"></h2>
+        <h3 id="feed_title"></h3>
+        <h3 id="updatedDate"></h3>
+        <div id="content"></div>
+	</body>
+</html>
