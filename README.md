@@ -3,7 +3,7 @@ TTRSSGadget
 
 A Windows sidebar gadget for displaying articles from a Tiny Tiny RSS server
 
-** SECURITY WARNING: **  
+#### SECURITY WARNING: ###
 
 Microsoft recommended that the Windows Sidebar in Windows Vista and Windows 7 be disabled due to possible security vulnerabilities in [Security Advisory 2719662](https://technet.microsoft.com/library/security/2719662), so please read this and use this gadget at your own risk.
 
