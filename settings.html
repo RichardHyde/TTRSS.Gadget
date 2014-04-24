@@ -1,0 +1,50 @@
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=Unicode" />
+    <style type="text/css">
+        body
+        {
+            margin: 2px;
+            width: 300px;
+            height: 180px;
+            font-family: verdana;
+            font-size: 9px;
+            overflow: auto;
+            /*background-color: rgb(0,0,32);*/
+        }
+    </style>
+
+    <script type="text/javascript" src="jquery-1.11.0.min.js"></script>    
+    <script type="text/javascript" language="javascript">
+		function SettingsClosing(event)
+		{
+		    // Save the settings if the user clicked OK.
+		    if (event.closeAction == event.Action.commit)
+		    {
+		        System.Gadget.Settings.writeString("serverURL", serverURL.value);
+		        System.Gadget.Settings.writeString("username", username.value);
+		        System.Gadget.Settings.writeString("password", password.value);
+		    }
+		    // Allow the Settings dialog to close.
+		    event.cancel = false;
+		}
+
+		function loadSettings()
+		{
+			serverURL.value=System.Gadget.Settings.readString("serverURL");
+			username.value=System.Gadget.Settings.readString("username");
+			password.value=System.Gadget.Settings.readString("password");
+		}
+
+		System.Gadget.onSettingsClosing = SettingsClosing;
+    </script>
+</head>
+<body onload="loadSettings()">
+	<label for="serverURL">Server URL</label>
+	<input type="text" id="serverURL" name="serverURL" class="textbox" style="width:270px"/>
+	<label for="username">Username</label>
+	<input type="text" id="username" name="username" class="textbox" style="width:270px"/>
+	<label for="password">Password</label>
+	<input type="password" id="password" name="password" class="password" style="width:270px"/>	
+</body>
+</html>

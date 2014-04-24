@@ -22,6 +22,7 @@
           max-width: 155px;
           height: auto;
           width: expression(this.width > 155 ? 155 : true);
+          text-align:center;
         }
         h2 {
             font-family: verdana;
@@ -51,8 +52,14 @@
         <script type="text/javascript" src="json2.js"></script>
         <script type="text/javascript" language="javascript">
             var sid = "", ids = new Array(), unreadCount = 0;
+            var serverURL = "", username = "", password = "";
 
             function ajaxPost(params, success) {
+                if (serverURL == "") {
+                    $("#title").html("Error : Missing Server URL")
+                    return;
+                }
+
                 if (window.XMLHttpRequest)
                 {
                     // code for IE7+, Firefox, Chrome, Opera, Safari
@@ -75,27 +82,41 @@
 
                 }
 
-                xmlhttp.open("post","<YOUR TTRSS URL>/api/",true);
+                xmlhttp.open("post",serverURL,true);
                 xmlhttp.send(params);
             }
 
             function login() {
+                if (username == "" || password == "") {
+                    $("#title").html("Missing username or password");
+                    return;
+                }
+
                 ajaxPost(JSON.stringify({
                         op: 'login',
-                        user: '<YOUR USERNAME>',
-                        password: '<YOUR PASSWORD>'
+                        user: username,
+                        password: password
                     }), function( data ) {
                     if (data["content"])
                     {
-                        sid = data["content"]["session_id"];
-                        loadHeadlines();
-                    }
+                        if (data["content"]["error"]) {
+                            $("#title").html("Login Error : " + data["content"]["error"]);
+                        } else {
+                            sid = data["content"]["session_id"];
+                            loadHeadlines();
+                        }
+                    } 
                 });
             }
 
             function loadHeadlines() {
+                if (serverURL == "" || username == "" || password == "") {
+                    $("#title").html("Missing Settings");
+                    return;
+                }
+
                 if (sid == "") {
-                    login()
+                    login();
                 } else if (unreadCount <= 0) {
                     getUnreadCount(loadHeadlines);
                 } else {
@@ -141,6 +162,7 @@
                                 $("#content").html(data["content"][0]['content']);
                                 $("#feed_title").html(data["content"][0]['feed_title']);
                                 $("#updatedDate").html(updatedDate.toLocaleString());
+                                $("#item_link").val(data["content"][0]['link']);
                             }
                         });
                 }
@@ -191,6 +213,7 @@
                                     $("#content").html("");
                                     $("#feed_title").html("");
                                     $("#updatedDate").html("");
+                                    $("#item_link").val("");
                                     setTimeout(loadHeadlines, (60*5) * 1000);
                                 }
                                 else
@@ -224,9 +247,28 @@
                 }
             }
 
+            function loadSettings()
+            {
+                serverURL = System.Gadget.Settings.readString("serverURL");
+                username = System.Gadget.Settings.readString("username");
+                password = System.Gadget.Settings.readString("password");         
+            }
+
+            function SettingsClosed(event)
+            {
+                // User hits OK on the settings page.
+                if (event.closeAction == event.Action.commit)
+                {
+                    loadSettings();
+                    loadHeadlines();
+                }
+            }
 
         	function init()
         	{
+                System.Gadget.settingsUI = "settings.html";
+                System.Gadget.onSettingsClosed = SettingsClosed;
+                loadSettings();
                 loadHeadlines();
             }
 
@@ -242,5 +284,6 @@
         <h3 id="feed_title"></h3>
         <h3 id="updatedDate"></h3>
         <div id="content"></div>
+        <input type="hidden" name="item_link"/>
 	</body>
 </html>
